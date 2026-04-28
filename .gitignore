@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Data (don't commit large files)
+data/uploads/*
+data/outputs/*
+data/cbeta_xml/
+data/cbeta_chunks/
+!data/uploads/.gitkeep
+!data/outputs/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Models
+*.bin
+*.pt
+*.safetensors
+models/
+
+# Logs
+*.log
+logs/

@@ -1,0 +1,99 @@
+# Phase 1 — Infra only on Apple M4.
+# Worker runs natively on host (mlx-whisper needs Apple Metal, no Docker).
+# Backend can also run natively for fastest dev iteration; the backend service
+# below is provided for full-container mode or production parity testing.
+#
+# Quick start:
+#   cp .env.example .env
+#   docker compose up -d postgres redis minio
+#   (run worker + backend + frontend natively — see README)
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: buddhist_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-buddhist}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-buddhist_dev_pw}
+      POSTGRES_DB: ${POSTGRES_DB:-buddhist_sub}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-buddhist}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: buddhist_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: buddhist_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${S3_ACCESS_KEY:-minioadmin} ${S3_SECRET_KEY:-minioadmin} &&
+      mc mb -p local/${S3_BUCKET:-buddhist-sub} || true &&
+      mc anonymous set download local/${S3_BUCKET:-buddhist-sub} || true
+      "
+
+  # Optional: containerised backend (use if you don't want to run native)
+  backend:
+    profiles: ["full"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: buddhist_backend
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-buddhist}:${POSTGRES_PASSWORD:-buddhist_dev_pw}@postgres:5432/${POSTGRES_DB:-buddhist_sub}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      S3_ENDPOINT: http://minio:9000
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pg_data:
+  redis_data:
+  minio_data:
