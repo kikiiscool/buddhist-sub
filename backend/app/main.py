@@ -14,8 +14,11 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # Dev-mode auto-create. Prod uses alembic migrations.
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    if settings.skip_db_init:
+        logger.warning("Skipping DB init because SKIP_DB_INIT is enabled")
+    else:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
     logger.info("Buddhist subtitle backend started")
     yield
 
