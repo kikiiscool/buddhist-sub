@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     s3_secret_key: str
     s3_bucket: str
     s3_region: str = "us-east-1"
+    skip_db_init: bool = False
 
     backend_cors_origins: str = "http://localhost:3000"
 

@@ -40,6 +40,8 @@ Thumbs.db
 *.pt
 *.safetensors
 models/
+!backend/app/models/
+!backend/app/models/*.py
 
 # Logs
 *.log

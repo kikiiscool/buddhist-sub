@@ -49,6 +49,16 @@ cp .env.example .env
 docker compose up -d postgres redis minio minio-init
 ```
 
+> MinIO 連線提示：
+> - `http://localhost:9000` 係 **S3 API endpoint**（俾程式用，唔係管理介面）。
+> - `http://localhost:9001` 先係 **MinIO Console UI**（瀏覽器應該開呢個）。
+> - 如果見到 `ERR_CONNECTION_REFUSED`，先檢查 Docker 有冇起到：
+>
+> ```bash
+> docker compose ps
+> docker compose logs --tail=100 minio minio-init
+> ```
+
 ### 2. CBETA 入庫 (一次性,可後台)
 
 ```bash
@@ -69,6 +79,13 @@ pip install -e .
 uvicorn app.main:app --reload
 # → http://localhost:8000/docs
 ```
+
+> 如果你淨係想喺無 Postgres/Redis/MinIO 嘅環境 smoke-test backend 啟動，
+> 可以臨時用 `SKIP_DB_INIT=1` 跳過啟動時 DB 初始化：
+>
+> ```bash
+> SKIP_DB_INIT=1 uvicorn app.main:app --reload
+> ```
 
 ### 4. Worker (native,M4 用 mlx-whisper)
 
@@ -98,6 +115,40 @@ npm run dev
 2. 睇住 6 步 pipeline 嘅進度條同 WebSocket event 流即時更新
 3. 第 5 步 (review) 自動暫停 — 喺 UI 改字幕,然後撳「繼續」
 4. 第 6 步生成 SRT,撳「下載 SRT」攞檔
+
+---
+
+## 常見：`ERR_CONNECTION_REFUSED` /「無法連線至這個網站」
+
+如果你開 `localhost` 見到連線被拒絕，通常係服務未起好，或者開錯 port：
+
+| 服務 | 正確網址 | 用途 |
+|---|---|---|
+| Frontend | `http://localhost:3000` | Web UI |
+| Backend | `http://localhost:8000/docs` | API Swagger |
+| MinIO API | `http://localhost:9000` | S3 endpoint（程式用，唔係管理頁） |
+| MinIO Console | `http://localhost:9001` | MinIO 管理介面（瀏覽器要開呢個） |
+
+快速檢查（建議照順序）：
+
+```bash
+# 1) infra 有冇起到
+docker compose ps
+
+# 2) MinIO / Postgres / Redis log 有冇 error
+docker compose logs --tail=100 minio minio-init postgres redis
+
+# 3) backend health check
+curl -i http://localhost:8000/healthz
+```
+
+如果你只係 smoke-test backend 啟動（無 DB/Redis/MinIO），用：
+
+```bash
+SKIP_DB_INIT=1 uvicorn app.main:app --reload
+```
+
+但注意：呢個模式只保證 backend process 起得嚟；涉及資料庫嘅 API（例如 `/jobs`）仍然會因為無 Postgres 而失敗。
 
 ---
 
