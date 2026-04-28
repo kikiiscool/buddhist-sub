@@ -1,0 +1,43 @@
+[project]
+name = "buddhist-sub-worker"
+version = "0.1.0"
+description = "Celery pipeline workers (VAD → Whisper → dict → Qwen RAG → SRT)"
+requires-python = ">=3.11"
+dependencies = [
+  "celery>=5.4.0",
+  "redis>=5.0.0",
+  "sqlalchemy[asyncio]>=2.0.30",
+  "asyncpg>=0.29.0",
+  "psycopg2-binary>=2.9.9",
+  "boto3>=1.34.0",
+  "pydantic>=2.8.0",
+  "pydantic-settings>=2.4.0",
+  "loguru>=0.7.0",
+  "httpx>=0.27.0",
+  "openai>=1.40.0",  # used as DashScope OpenAI-compatible client
+  "numpy>=1.26.0",
+  "soundfile>=0.12.1",
+  "pydub>=0.25.1",
+  # VAD (silero-vad via torch hub) — torch is required.
+  # On Apple M4 use the wheel that supports MPS (default since torch 2.x).
+  "torch>=2.3.0",
+  "torchaudio>=2.3.0",
+  # SRT
+  "srt>=3.5.3",
+  # Optional CBETA RAG embedding (local fallback)
+  # "sentence-transformers>=3.0.0",  # uncomment if EMBEDDING_BACKEND=bge-m3
+  # pgvector client
+  "pgvector>=0.3.0",
+]
+
+[project.optional-dependencies]
+mlx = ["mlx-whisper>=0.4.0"]                    # macOS Apple Silicon only
+faster = ["faster-whisper>=1.0.3"]              # CPU/CUDA
+openai-asr = ["openai>=1.40.0"]                 # already in base
+
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["worker*"]
