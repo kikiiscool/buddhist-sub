@@ -13,6 +13,9 @@ def get_backend() -> WhisperBackend:
     if name == "openai":
         from worker.pipeline.whisper_backends.openai_api import OpenAIWhisperBackend
         return OpenAIWhisperBackend()
+    if name == "mock":
+        from worker.pipeline.whisper_backends.mock import MockWhisperBackend
+        return MockWhisperBackend()
     raise ValueError(f"unknown WHISPER_BACKEND={name}")
 
 

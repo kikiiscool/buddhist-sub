@@ -6,6 +6,7 @@ the top-k passages.
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 from sqlalchemy import text
@@ -14,6 +15,10 @@ from worker.config import get_settings
 from worker.db import Session
 
 _settings = get_settings()
+
+
+def _is_mock() -> bool:
+    return os.environ.get("MOCK_AI", "").lower() in ("1", "true", "yes")
 
 
 @dataclass
@@ -49,6 +54,9 @@ def embed(texts: list[str]) -> list[list[float]]:
 
 def search(query: str, top_k: int = 4) -> list[CbetaHit]:
     if not query.strip():
+        return []
+    # Smoke-test / CI shortcut: skip embedding + pgvector lookup entirely.
+    if _is_mock():
         return []
     vec = embed([query])[0]
     sql = text(
