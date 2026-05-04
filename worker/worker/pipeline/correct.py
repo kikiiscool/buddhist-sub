@@ -16,6 +16,7 @@ prompt static and put dynamic context in the user message.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,7 +26,14 @@ from worker.config import get_settings
 from worker.pipeline.rag import CbetaHit
 
 _settings = get_settings()
-_client = OpenAI(api_key=_settings.dashscope_api_key, base_url=_settings.dashscope_base_url)
+
+
+def _is_mock() -> bool:
+    return os.environ.get("MOCK_AI", "").lower() in ("1", "true", "yes")
+
+
+def _client() -> OpenAI:
+    return OpenAI(api_key=_settings.dashscope_api_key, base_url=_settings.dashscope_base_url)
 
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parents[3] / "data" / "prompts" / "qwen_correct.md"
 
@@ -58,6 +66,11 @@ def correct_segment(
     model: str | None = None,
 ) -> CorrectionResult:
     model_name = model or _settings.qwen_model
+
+    # Smoke-test / CI shortcut: skip the LLM call entirely.
+    if _is_mock():
+        return CorrectionResult(text=raw, changed=False, notes="mock", model="mock")
+
     rag_block = "\n".join(
         f"[{h.canon} {h.work_id} 卷{h.juan or '-'}] {h.passage}" for h in rag_hits
     ) or "(無相關經文)"
@@ -70,7 +83,7 @@ def correct_segment(
         f"請只校正錯字,輸出 JSON。"
     )
 
-    resp = _client.chat.completions.create(
+    resp = _client().chat.completions.create(
         model=model_name,
         messages=[
             {"role": "system", "content": _system_prompt()},
