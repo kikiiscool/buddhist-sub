@@ -85,6 +85,14 @@ python -m pip install $PIP_FLAGS -e ./backend
 echo "[smoke] installing worker"
 python -m pip install $PIP_FLAGS -e ./worker
 
+# Apply DB migrations explicitly before starting the backend. This matches
+# the prod pattern (init container) and surfaces migration errors in their
+# own log rather than the backend startup log. Backend lifespan won't
+# re-run them because we set RUN_MIGRATIONS_ON_START=0 below.
+echo "[smoke] running alembic upgrade head"
+( cd backend && python -m alembic upgrade head ) 2>&1 | tee "$LOG_DIR/alembic.log"
+export RUN_MIGRATIONS_ON_START=0
+
 # ---- 3) generate sample audio ------------------------------------------------
 if [[ ! -f "$AUDIO" ]]; then
   echo "[smoke] generating sample MP3 → $AUDIO"

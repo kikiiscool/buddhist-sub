@@ -6,19 +6,33 @@ from loguru import logger
 
 from app.api import jobs, upload, ws
 from app.core.config import get_settings
-from app.core.db import Base, engine
+from app.core.migrations import upgrade_head
 
 settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Dev-mode auto-create. Prod uses alembic migrations.
+    """DB initialisation policy:
+
+    * SKIP_DB_INIT=1 — touch nothing. Used when smoke-testing the import
+      path or when the deployment runs migrations entirely externally and
+      doesn't even want logs from this code path.
+    * RUN_MIGRATIONS_ON_START=1 (default) — run `alembic upgrade head`.
+      Convenient for dev (`uvicorn ... --reload`) and acceptable for
+      single-replica deployments.
+    * RUN_MIGRATIONS_ON_START=0 — assume migrations were applied by an
+      init container / CI job before the app started. Recommended for
+      multi-replica production to avoid migration races between replicas.
+    """
     if settings.skip_db_init:
-        logger.warning("Skipping DB init because SKIP_DB_INIT is enabled")
+        logger.warning("Skipping DB init (SKIP_DB_INIT=1)")
+    elif settings.run_migrations_on_start:
+        await upgrade_head()
     else:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        logger.info(
+            "RUN_MIGRATIONS_ON_START=0 — expecting migrations to be applied externally"
+        )
     logger.info("Buddhist subtitle backend started")
     yield
 

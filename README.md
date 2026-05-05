@@ -80,6 +80,9 @@ uvicorn app.main:app --reload
 # → http://localhost:8000/docs
 ```
 
+預設 lifespan 會喺啟動時自動跑 `alembic upgrade head`,所以 dev 上 zero-config。
+詳情見下面 [DB migrations](#db-migrations) 一節。
+
 > 如果你淨係想喺無 Postgres/Redis/MinIO 嘅環境 smoke-test backend 啟動，
 > 可以臨時用 `SKIP_DB_INIT=1` 跳過啟動時 DB 初始化：
 >
@@ -149,6 +152,71 @@ SKIP_DB_INIT=1 uvicorn app.main:app --reload
 ```
 
 但注意：呢個模式只保證 backend process 起得嚟；涉及資料庫嘅 API（例如 `/jobs`）仍然會因為無 Postgres 而失敗。
+
+---
+
+## DB migrations
+
+Schema 由 alembic 管理,migration 喺 `backend/alembic/versions/`。
+
+### 啟動時行為 (兩個 env flag 控制)
+
+| `SKIP_DB_INIT` | `RUN_MIGRATIONS_ON_START` | 結果 |
+|---|---|---|
+| `1` | _(any)_ | 完全唔掂 DB (純 import smoke / 無 Postgres 環境) |
+| `0` (default) | `1` (default) | lifespan 自動跑 `alembic upgrade head` |
+| `0` | `0` | 假設有人預先 apply 咗 migration (production / k8s init container) |
+
+### 日常 workflow
+
+```bash
+cd backend
+
+# 改完 model 之後 (autogenerate 草稿)
+alembic revision --autogenerate -m "add foo column"
+# *** review backend/alembic/versions/<id>_add_foo_column.py ***
+# 特別小心 enum 改動同 server_default
+
+# 套用最新 migration
+alembic upgrade head
+
+# 退一步
+alembic downgrade -1
+
+# 睇 history / current
+alembic history
+alembic current
+```
+
+### Production 部署 pattern
+
+```yaml
+# k8s 例子 — backend Deployment 加 init container
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: migrate
+          image: ghcr.io/.../buddhist-sub-backend:TAG
+          command: ["alembic", "upgrade", "head"]
+          envFrom: [{secretRef: {name: backend-secrets}}]
+      containers:
+        - name: backend
+          env:
+            - name: RUN_MIGRATIONS_ON_START
+              value: "0"   # 多 replica 時必須關,避免 race
+```
+
+### 注意事項
+
+* `0001_initial` 會 `CREATE EXTENSION vector / pg_trgm` — managed Postgres
+  通常容許,但部分 sandbox 唔得,要 ops 預先安裝。
+* `cbeta_chunks` table 由 `scripts/ingest_cbeta.py` 用 raw SQL 創建 (因為佢用
+  `vector(1024)` 列,alembic 唔認 pgvector type)。`alembic/env.py` 嘅
+  `include_object` filter 將佢排除喺 autogenerate 之外,唔會被誤刪。
+* 改 enum 值 (例如加 `StepName`) **唔好**用 autogenerate 嘅 default 輸出,
+  Postgres 嘅 `ALTER TYPE ... ADD VALUE` 唔可以喺 transaction 入面跑;要寫
+  `with op.get_context().autocommit_block(): op.execute("ALTER TYPE ...")`。
 
 ---
 

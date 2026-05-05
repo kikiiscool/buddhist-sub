@@ -28,6 +28,11 @@ Key choices:
   extension (most providers support it).
 * **HPA**: scale `worker-asr` on Celery queue length; scale `backend` on
   CPU/RPS.
+* **Migrations**: run `alembic upgrade head` from an `initContainer` on the
+  backend Deployment, and set `RUN_MIGRATIONS_ON_START=0` on the backend
+  containers themselves so multiple replicas don't race to apply the same
+  migration. See the `## DB migrations` section in the root README for the
+  exact init container snippet.
 
 Manifests will be added in Phase 2. For now, the docker-compose file is the
 source of truth for env shape.
