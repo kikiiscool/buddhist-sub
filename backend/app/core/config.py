@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     s3_bucket: str
     s3_region: str = "us-east-1"
     skip_db_init: bool = False
+    # Run `alembic upgrade head` from the FastAPI lifespan on startup.
+    # Default true so dev workflow remains zero-config. Production should
+    # disable this and run migrations from an init container / CI job.
+    run_migrations_on_start: bool = True
 
     backend_cors_origins: str = "http://localhost:3000"
 
