@@ -1,0 +1,85 @@
+# Basic HPAs: CPU-based for backend + frontend (request-driven), CPU-based for
+# worker as a placeholder.
+#
+# Better worker scaling = Celery queue length via a custom metric (e.g.
+# `flower` exporter or KEDA's `redis-queue` scaler) — the comment block at
+# the bottom shows the KEDA equivalent.
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend
+  namespace: buddhist-sub
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 70}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend
+  namespace: buddhist-sub
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 70}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker
+  namespace: buddhist-sub
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker
+  minReplicas: 2
+  maxReplicas: 8
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 80}
+
+# --- Better: KEDA-driven scaling on Redis queue length ----------------------
+# Install KEDA in the cluster, then replace the worker HPA above with:
+#
+# apiVersion: keda.sh/v1alpha1
+# kind: ScaledObject
+# metadata:
+#   name: worker
+#   namespace: buddhist-sub
+# spec:
+#   scaleTargetRef:
+#     name: worker
+#   minReplicaCount: 1
+#   maxReplicaCount: 8
+#   triggers:
+#     - type: redis
+#       metadata:
+#         address: redis:6379
+#         listName: celery        # broker queue name
+#         listLength: "5"         # scale up when ≥5 tasks queued per replica

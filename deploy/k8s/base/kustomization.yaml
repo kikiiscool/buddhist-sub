@@ -1,0 +1,34 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: buddhist-sub
+
+resources:
+  - 00-namespace.yaml
+  - 10-configmap.yaml
+  - 11-secrets.example.yaml   # replace via overlay in real deployments
+  - 20-postgres.yaml
+  - 21-redis.yaml
+  - 22-minio.yaml
+  - 30-backend.yaml
+  - 31-worker.yaml
+  # - 32-worker-asr.yaml    # enable after task-routing refactor; see file
+  - 33-frontend.yaml
+  - 40-ingress.yaml
+  - 41-hpa.yaml
+
+# Override these in an overlay or via `kustomize edit set image` to point at
+# your registry. Tags should be immutable digests in production.
+images:
+  - name: ghcr.io/REPLACE_OWNER/buddhist-sub-backend
+    newName: ghcr.io/REPLACE_OWNER/buddhist-sub-backend
+    newTag: latest
+  - name: ghcr.io/REPLACE_OWNER/buddhist-sub-worker
+    newName: ghcr.io/REPLACE_OWNER/buddhist-sub-worker
+    newTag: latest
+  - name: ghcr.io/REPLACE_OWNER/buddhist-sub-frontend
+    newName: ghcr.io/REPLACE_OWNER/buddhist-sub-frontend
+    newTag: latest
+
+commonLabels:
+  app.kubernetes.io/part-of: buddhist-sub
+  app.kubernetes.io/managed-by: kustomize

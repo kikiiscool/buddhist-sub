@@ -46,3 +46,7 @@ models/
 # Logs
 *.log
 logs/
+
+# K8s real secrets — only the *.example.yaml is committed.
+deploy/k8s/**/secrets.yaml
+deploy/k8s/base/11-secrets.yaml
