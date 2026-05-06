@@ -33,7 +33,14 @@ jobs:
         run: npm run build
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Opt-in. Set repository variable ENABLE_VERCEL_DEPLOY=true (Settings →
+    # Secrets and variables → Actions → Variables) AND configure the three
+    # Vercel secrets below before flipping it on. Default off so unconfigured
+    # repos don't fail every push to main.
+    if: |
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      vars.ENABLE_VERCEL_DEPLOY == 'true'
     needs: build
     runs-on: ubuntu-latest
     steps:
