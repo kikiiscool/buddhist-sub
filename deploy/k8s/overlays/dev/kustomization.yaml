@@ -1,0 +1,45 @@
+# Dev overlay — single replica everywhere, smaller resource requests, latest tags.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: buddhist-sub
+
+resources:
+  - ../../base
+
+replicas:
+  - {name: backend,  count: 1}
+  - {name: worker,   count: 1}
+  - {name: frontend, count: 1}
+
+# In dev we usually want pull-on-every-rollout, since tags float.
+images:
+  - name: ghcr.io/REPLACE_OWNER/buddhist-sub-backend
+    newName: ghcr.io/REPLACE_OWNER/buddhist-sub-backend
+    newTag: dev
+  - name: ghcr.io/REPLACE_OWNER/buddhist-sub-worker
+    newName: ghcr.io/REPLACE_OWNER/buddhist-sub-worker
+    newTag: dev
+  - name: ghcr.io/REPLACE_OWNER/buddhist-sub-frontend
+    newName: ghcr.io/REPLACE_OWNER/buddhist-sub-frontend
+    newTag: dev
+
+patches:
+  # imagePullPolicy: Always for floating dev tags
+  - target: {kind: Deployment, name: backend}
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Always
+      - op: replace
+        path: /spec/template/spec/initContainers/0/imagePullPolicy
+        value: Always
+  - target: {kind: Deployment, name: worker}
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Always
+  - target: {kind: Deployment, name: frontend}
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Always

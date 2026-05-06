@@ -1,0 +1,42 @@
+# Generic CPU worker — handles every pipeline step (vad / transcribe / dict /
+# rag_correct / srt). For a separate GPU-backed transcribe queue see
+# 32-worker-asr.yaml (which is commented-out by default since it requires a
+# Celery task-routing refactor — tracked as a follow-up).
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: buddhist-sub
+  labels:
+    app: worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/REPLACE_OWNER/buddhist-sub-worker:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: {name: buddhist-sub-config}
+            - secretRef:    {name: buddhist-sub-secrets}
+          # Liveness — celery's --quiet inspect ping is reasonably cheap.
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - 'celery -A worker.celery_app:celery_app inspect ping -d "celery@$HOSTNAME" --timeout=10'
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 15
+          resources:
+            requests: {cpu: "500m", memory: "1Gi"}
+            limits:   {cpu: "4",    memory: "4Gi"}

@@ -1,0 +1,62 @@
+# GPU-backed ASR worker — TEMPLATE / DISABLED BY DEFAULT.
+#
+# To use:
+#   1. Refactor worker/worker/tasks.py so `transcribe` is enqueued as its own
+#      task (currently run_job orchestrates everything in one task — splitting
+#      the queue won't actually help until that refactor lands).
+#   2. Add Celery task routing so transcribe → "asr" queue, others → "default".
+#   3. Build the worker image with --build-arg WHISPER_EXTRA=faster against a
+#      CUDA-capable base image, push, then update the image: ref below.
+#   4. Remove the `# DISABLED:` lines and `kubectl apply` this file.
+#
+# Until step 1-3 are done, applying this manifest will spin up an idle worker
+# that gets the same generic celery queue as worker/ — duplicating work
+# without GPU benefit. Hence disabled.
+
+# DISABLED: ---
+# DISABLED: apiVersion: apps/v1
+# DISABLED: kind: Deployment
+# DISABLED: metadata:
+# DISABLED:   name: worker-asr
+# DISABLED:   namespace: buddhist-sub
+# DISABLED:   labels: {app: worker-asr}
+# DISABLED: spec:
+# DISABLED:   replicas: 1
+# DISABLED:   selector: {matchLabels: {app: worker-asr}}
+# DISABLED:   template:
+# DISABLED:     metadata: {labels: {app: worker-asr}}
+# DISABLED:     spec:
+# DISABLED:       nodeSelector:
+# DISABLED:         nvidia.com/gpu.product: "NVIDIA-A10"   # adjust to your fleet
+# DISABLED:       tolerations:
+# DISABLED:         - key: nvidia.com/gpu
+# DISABLED:           operator: Exists
+# DISABLED:           effect: NoSchedule
+# DISABLED:       containers:
+# DISABLED:         - name: worker-asr
+# DISABLED:           image: ghcr.io/REPLACE_OWNER/buddhist-sub-worker-gpu:latest
+# DISABLED:           args:
+# DISABLED:             - "celery"
+# DISABLED:             - "-A"
+# DISABLED:             - "worker.celery_app:celery_app"
+# DISABLED:             - "worker"
+# DISABLED:             - "-Q"
+# DISABLED:             - "asr"
+# DISABLED:             - "--loglevel=info"
+# DISABLED:             - "--concurrency=1"
+# DISABLED:           env:
+# DISABLED:             - {name: WHISPER_BACKEND,  value: "faster"}
+# DISABLED:             - {name: WHISPER_DEVICE,   value: "cuda"}
+# DISABLED:             - {name: WHISPER_COMPUTE_TYPE, value: "float16"}
+# DISABLED:           envFrom:
+# DISABLED:             - configMapRef: {name: buddhist-sub-config}
+# DISABLED:             - secretRef:    {name: buddhist-sub-secrets}
+# DISABLED:           resources:
+# DISABLED:             requests:
+# DISABLED:               nvidia.com/gpu: "1"
+# DISABLED:               cpu: "1"
+# DISABLED:               memory: "8Gi"
+# DISABLED:             limits:
+# DISABLED:               nvidia.com/gpu: "1"
+# DISABLED:               cpu: "4"
+# DISABLED:               memory: "16Gi"

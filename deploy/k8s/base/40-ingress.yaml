@@ -1,0 +1,45 @@
+# Single Ingress that fronts both frontend and backend, with cert-manager
+# issuing TLS certs via Let's Encrypt. Adjust the host names + ingressClassName
+# for your cluster (NGINX / Traefik / GKE / AKS / EKS-ALB).
+#
+# WebSocket: NGINX ingress upgrades automatically; some controllers need
+# annotations like `nginx.org/websocket-services` — uncomment if needed.
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: buddhist-sub
+  namespace: buddhist-sub
+  annotations:
+    # Adjust to your cluster's controller. Examples:
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    # nginx.ingress.kubernetes.io/proxy-body-size: "100m"   # MP3 uploads
+    # nginx.ingress.kubernetes.io/use-regex: "true"
+    placeholder: "configure-for-your-cluster"
+spec:
+  # ingressClassName: nginx
+  tls:
+    - hosts:
+        - example.com
+        - api.example.com
+      secretName: buddhist-sub-tls
+  rules:
+    - host: example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port: {number: 3000}
+    - host: api.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port: {number: 8000}

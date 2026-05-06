@@ -1,0 +1,75 @@
+# In-cluster Postgres + pgvector. Suitable for staging / single-tenant prod.
+# For larger deployments, swap to a managed Postgres (RDS / Cloud SQL / Aiven)
+# that supports the `vector` and `pg_trgm` extensions, and remove this file.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: buddhist-sub
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None  # headless — required for StatefulSet stable DNS
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: buddhist-sub
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg16
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom: {configMapKeyRef: {name: buddhist-sub-config, key: POSTGRES_USER}}
+            - name: POSTGRES_DB
+              valueFrom: {configMapKeyRef: {name: buddhist-sub-config, key: POSTGRES_DB}}
+            - name: POSTGRES_PASSWORD
+              valueFrom: {secretKeyRef: {name: buddhist-sub-secrets, key: POSTGRES_PASSWORD}}
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "buddhist"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "buddhist"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 50Gi   # Adjust per CBETA corpus size; embeddings dominate.

@@ -1,0 +1,54 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: buddhist-sub
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: buddhist-sub
+  labels:
+    app: frontend
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          # NOTE: NEXT_PUBLIC_* values are baked in at image build time; the
+          # ConfigMap is read by the Next.js runtime for any non-public envs
+          # we add later.
+          image: ghcr.io/REPLACE_OWNER/buddhist-sub-frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - {containerPort: 3000, name: http}
+          envFrom:
+            - configMapRef: {name: buddhist-sub-config}
+          readinessProbe:
+            httpGet: {path: /, port: 3000}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: {cpu: "100m", memory: "256Mi"}
+            limits:   {cpu: "1",    memory: "512Mi"}

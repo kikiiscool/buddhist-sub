@@ -1,0 +1,31 @@
+# Prod overlay — pinned image digests, real hostnames, real Postgres URL.
+# Drop a `secrets.yaml` (gitignored) in this directory with the real values
+# and reference it via secretGenerator.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: buddhist-sub
+
+resources:
+  - ../../base
+
+# Pin to digests in production.
+images:
+  - name: ghcr.io/REPLACE_OWNER/buddhist-sub-backend
+    newName: ghcr.io/REPLACE_OWNER/buddhist-sub-backend
+    newTag: v0.1.0
+  - name: ghcr.io/REPLACE_OWNER/buddhist-sub-worker
+    newName: ghcr.io/REPLACE_OWNER/buddhist-sub-worker
+    newTag: v0.1.0
+  - name: ghcr.io/REPLACE_OWNER/buddhist-sub-frontend
+    newName: ghcr.io/REPLACE_OWNER/buddhist-sub-frontend
+    newTag: v0.1.0
+
+# Real hostnames + Sentry / observability env values can be merged in via
+# configMapGenerator with behavior: merge.
+configMapGenerator:
+  - name: buddhist-sub-config
+    behavior: merge
+    literals:
+      - BACKEND_CORS_ORIGINS=https://your-domain.example
+      - NEXT_PUBLIC_API_URL=https://api.your-domain.example
+      - NEXT_PUBLIC_WS_URL=wss://api.your-domain.example

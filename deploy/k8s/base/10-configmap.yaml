@@ -1,0 +1,47 @@
+# Non-secret configuration. Secrets (DB password, DashScope key, etc.)
+# live in the Secret resource — see 11-secrets.example.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: buddhist-sub-config
+  namespace: buddhist-sub
+data:
+  APP_ENV: "production"
+  LOG_LEVEL: "INFO"
+
+  # The Service DNS names below match the Services in 20-postgres / 21-redis /
+  # 22-minio. Override them in an overlay if you swap to managed services.
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "buddhist_sub"
+  POSTGRES_USER: "buddhist"
+
+  REDIS_URL: "redis://redis:6379/0"
+  CELERY_BROKER_URL: "redis://redis:6379/1"
+  CELERY_RESULT_BACKEND: "redis://redis:6379/2"
+
+  S3_ENDPOINT: "http://minio:9000"
+  S3_BUCKET: "buddhist-sub"
+  S3_REGION: "us-east-1"
+
+  # Backend lifecycle: production with multi-replica MUST set this to "0",
+  # since each replica would otherwise race to apply migrations. The
+  # backend Deployment runs an initContainer to apply migrations once.
+  RUN_MIGRATIONS_ON_START: "0"
+  SKIP_DB_INIT: "0"
+
+  # Worker / model defaults — overridden per-Deployment for ASR vs CPU.
+  WHISPER_BACKEND: "faster"
+  WHISPER_LANGUAGE: "yue"
+  WHISPER_MODEL: "large-v3"
+
+  QWEN_MODEL: "qwen2.5-72b-instruct"
+  QWEN_FALLBACK_MODEL: "qwen2.5-14b-instruct"
+  DASHSCOPE_BASE_URL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+  EMBEDDING_BACKEND: "dashscope"
+  EMBEDDING_MODEL: "text-embedding-v3"
+  EMBEDDING_DIM: "1024"
+
+  BACKEND_CORS_ORIGINS: "https://example.com"
+  NEXT_PUBLIC_API_URL: "https://api.example.com"
+  NEXT_PUBLIC_WS_URL: "wss://api.example.com"
